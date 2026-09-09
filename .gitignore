@@ -1,0 +1,60 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+*.pkl
+*.model
+lgb_model.txt
+merged_features.pkl
+final_labeled_data.pkl
+model_ready_data.pkl
+solvency_features.pkl
+
+# Java
+backend/target/
+backend/.mvn/
+backend/*.class
+backend/*.jar
+backend/*.war
+backend/*.ear
+backend/*.zip
+backend/*.tar.gz
+backend/*.rar
+
+# Node/Vue
+frontend/node_modules/
+frontend/dist/
+frontend/.DS_Store
+frontend/*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large Data & Temp
+*.log
+output.txt
+*.xlsx
+*.docx
+*.doc
+*.exe
+RESSET 股票_股票特别处理与撤销/
