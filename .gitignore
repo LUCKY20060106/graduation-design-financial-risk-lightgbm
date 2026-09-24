@@ -16,8 +16,8 @@ coverage.xml
 *,cover
 .hypothesis/
 *.pkl
-*.model
-lgb_model.txt
+# *.model
+# lgb_model.txt (Keep for deployment)
 merged_features.pkl
 final_labeled_data.pkl
 model_ready_data.pkl

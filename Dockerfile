@@ -14,17 +14,12 @@ COPY backend/src ./backend/src/
 COPY --from=frontend-builder /frontend/dist ./backend/src/main/resources/static/
 RUN mvn clean package -DskipTests -f backend/pom.xml
 
-# 第三阶段：运行环境 (优化 Debian Slim 源配置)
-FROM python:3.12-slim-bookworm
+# 第三阶段：运行环境 (改用完整版 Bookworm 镜像，彻底避开 Slim 镜像的坑)
+FROM python:3.12-bookworm
 WORKDIR /app
 
-# 修复 Debian Slim 源缺失问题并安装 Java 环境
-RUN echo "deb http://deb.debian.org/debian bookworm main" > /etc/apt/sources.list && \
-    echo "deb http://security.debian.org/debian-security bookworm-security main" >> /etc/apt/sources.list && \
-    echo "deb http://deb.debian.org/debian bookworm-updates main" >> /etc/apt/sources.list && \
-    apt-get update && \
-    mkdir -p /usr/share/man/man1 && \
-    apt-get install -y --no-install-recommends \
+# 完整版镜像自带完整的软件源和安全补丁索引，直接安装 JRE 即可，不再需要手动写 sources.list
+RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jre-headless \
     libgomp1 \
     && apt-get clean \
