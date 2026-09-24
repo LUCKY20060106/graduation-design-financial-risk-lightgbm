@@ -40,7 +40,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 
 const settings = ref({
@@ -51,9 +51,9 @@ const saving = ref(false)
 
 const fetchSettings = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/settings')
-    settings.value.threshold_high = parseFloat(response.data.threshold_high) || 0.7
-    settings.value.threshold_medium = parseFloat(response.data.threshold_medium) || 0.3
+    const response = await request.get('/settings')
+    settings.value.threshold_high = parseFloat(response.threshold_high) || 0.7
+    settings.value.threshold_medium = parseFloat(response.threshold_medium) || 0.3
   } catch (error) {
     ElMessage.error('获取设置失败')
   }
@@ -62,7 +62,7 @@ const fetchSettings = async () => {
 const handleSaveSettings = async () => {
   saving.value = true
   try {
-    await axios.post('http://localhost:8080/api/settings', {
+    await request.post('/settings', {
       threshold_high: settings.value.threshold_high.toString(),
       threshold_medium: settings.value.threshold_medium.toString()
     })
@@ -76,7 +76,7 @@ const handleSaveSettings = async () => {
 
 const handleClearHistory = async () => {
   try {
-    await axios.delete('http://localhost:8080/api/settings/history/clear')
+    await request.delete('/settings/history/clear')
     ElMessage.success('历史记录已清空')
   } catch (error) {
     ElMessage.error('清空失败')

@@ -40,71 +40,149 @@
 
         <el-form-item>
           <el-button type="success" :loading="loading" @click="handlePredict" size="large">立即进行风险评估</el-button>
-          <el-button @click="resetForm">重置</el-button>
+          <el-button @click="resetForm">重置所有数据</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <!-- 预测结果展示 -->
-    <el-dialog v-loading="loading" v-model="resultVisible" title="风险评估报告" width="85%" destroy-on-close>
-      <div v-if="predictionResult" class="result-container">
-        <el-row :gutter="20">
-          <el-col :span="6">
-            <el-result
-              :icon="getResultIcon"
-              :title="predictionResult.level"
-              :sub-title="'预测风险概率: ' + (predictionResult.risk_probability * 100).toFixed(2) + '%'"
-            >
-              <template #extra>
-                <el-tag :type="getTagType" size="large">{{ predictionResult.is_risk ? '建议重点关注' : '财务状况健康' }}</el-tag>
-              </template>
-            </el-result>
-            <div class="result-advice">
-              <div v-if="predictionResult.level === '高风险'">
-                <p><strong>诊断结论：</strong><el-tag type="danger">触发高危预警</el-tag></p>
-                <p><strong>专家建议：</strong>该企业财务指标触发高风险预警，建议立即进行现场审计并收紧授信额度。</p>
-              </div>
-              <div v-else-if="predictionResult.level === '中风险'">
-                <p><strong>诊断结论：</strong><el-tag type="warning">存在潜在波动</el-tag></p>
-                <p><strong>专家建议：</strong>企业存在一定财务波动，建议增加关注频率，核实利润真实性。</p>
-              </div>
-              <div v-else>
-                <p><strong>诊断结论：</strong><el-tag type="success">财务状况稳健</el-tag></p>
-                <p><strong>专家建议：</strong>各项财务指标处于安全区间，维持正常监控即可。</p>
-              </div>
-              <div class="shap-summary" v-if="shapSummaryText">
-                <el-divider content-position="left">智能诊断依据 (SHAP)</el-divider>
-                <p class="summary-text">{{ shapSummaryText }}</p>
-              </div>
-              <div style="margin-top: 20px; text-align: center;">
-                <el-button type="success" @click="handleExportReport(predictionResult.id)">导出 Excel 报告</el-button>
+    <!-- 预测结果展示 (Dashboard 布局) -->
+    <transition name="el-zoom-in-top">
+      <div v-if="predictionResult" class="result-dashboard" ref="resultDashboardRef">
+        <el-card class="dashboard-card" v-loading="loading">
+          <template #header>
+            <div class="card-header">
+              <span class="dashboard-title"><el-icon><data-analysis /></el-icon> 智能风险诊断报告</span>
+              <div class="header-actions">
+                <el-button type="success" plain size="small" @click="handleExportReport(predictionResult.id)">
+                  <el-icon><download /></el-icon> 导出 PDF 深度报告
+                </el-button>
+                <el-button type="info" plain size="small" @click="scrollToForm">
+                  <el-icon><top /></el-icon> 返回修改参数
+                </el-button>
               </div>
             </div>
-          </el-col>
-          
-          <el-col :span="9">
-            <div class="shap-chart-container">
-              <h3>特征贡献度诊断 (SHAP Value)</h3>
-              <p class="chart-tip">正值(红色)增加风险，负值(绿色)降低风险</p>
-              <div ref="shapChartRef" style="height: 450px; width: 100%;"></div>
-            </div>
-          </el-col>
+          </template>
 
-          <el-col :span="9">
-            <div class="benchmark-container">
-              <h3>行业对标分析</h3>
-              <p class="chart-tip">对比该企业与行业均值的维度偏差</p>
-              <div v-if="predictionResult.industry_benchmarking" ref="radarChartRef" style="height: 400px; width: 100%;"></div>
-              <el-empty v-else description="暂无该行业对标数据" :image-size="100">
-                <template #extra>
-                  <p style="font-size: 12px; color: #999;">请检查该股票代码是否已录入行业信息</p>
-                </template>
-              </el-empty>
-            </div>
-          </el-col>
-        </el-row>
+          <el-row :gutter="20">
+            <!-- 左侧：核心概览与 AI 诊断 -->
+            <el-col :span="7">
+              <div class="side-panel">
+                <div class="risk-kpi-card" :class="predictionResult.level">
+                  <div class="kpi-label">当前风险等级</div>
+                  <div class="kpi-value">{{ predictionResult.level }}</div>
+                  <div class="kpi-prob">预测概率: {{ (predictionResult.risk_probability * 100).toFixed(2) }}%</div>
+                  <div class="kpi-status">{{ predictionResult.is_risk ? '建议重点关注' : '财务状况健康' }}</div>
+                </div>
+
+                <!-- 智能医生诊断 -->
+                <div class="doctor-diagnosis section-card">
+                  <div class="section-title">
+                    <el-icon><first-aid-kit /></el-icon> 智能财务医生诊断
+                  </div>
+                  <div class="diagnosis-content">
+                    <div v-for="(advice, index) in diagnosisAdvices" :key="index" class="advice-item">
+                      <el-tag :type="advice.type" size="small" effect="dark">{{ advice.tag }}</el-tag>
+                      <span class="advice-text">{{ advice.text }}</span>
+                    </div>
+                  </div>
+                  <div class="overall-suggestion" v-if="predictionResult.level !== '低风险'">
+                    <strong>核心整改建议：</strong>
+                    <p>{{ coreSuggestion }}</p>
+                  </div>
+                </div>
+
+                <!-- AI 专家深度点评 -->
+                <div class="ai-diagnosis section-card">
+                  <div class="section-title">
+                    <el-icon><chat-dot-round /></el-icon> AI 专家深度点评
+                  </div>
+                  <div class="ai-content">
+                    <div v-if="aiCommentary" class="ai-text-box">
+                      {{ aiCommentary }}
+                    </div>
+                    <div v-else class="ai-action">
+                      <el-button 
+                        type="primary" 
+                        size="small" 
+                        :loading="aiLoading" 
+                        @click="fetchAiCommentary"
+                      >
+                        获取 AI 专家点评
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-col>
+            
+            <!-- 右侧：可视化图表 -->
+            <el-col :span="17">
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <div class="chart-card section-card">
+                    <div class="section-title">特征贡献度诊断 (SHAP Value)</div>
+                    <p class="chart-tip">正向(红色)增加风险，负向(绿色)降低风险</p>
+                    <div ref="shapChartRef" style="height: 400px; width: 100%;"></div>
+                  </div>
+                </el-col>
+                <el-col :span="12">
+                  <div class="chart-card section-card">
+                    <div class="section-title">行业对标分析</div>
+                    <p class="chart-tip">对比该企业与行业均值的维度偏差</p>
+                    <div v-if="predictionResult.industry_benchmarking" ref="radarChartRef" style="height: 400px; width: 100%;"></div>
+                    <el-empty v-else description="暂无该行业对标数据" :image-size="100" />
+                  </div>
+                </el-col>
+              </el-row>
+
+              <!-- 敏感度模拟器 -->
+              <div class="simulation-card section-card">
+                <div class="section-title">
+                  <el-icon><operation /></el-icon> 风险敏感度模拟器 (What-if Analysis)
+                </div>
+                <div class="simulation-body">
+                  <el-row :gutter="40">
+                    <el-col :span="12">
+                      <div class="simulation-sliders">
+                        <div v-for="field in topSimFields" :key="field.key" class="slider-item">
+                          <div class="slider-label">
+                            <span>{{ field.label }}</span>
+                            <el-tag size="small" type="info">{{ (simForm[field.key] || 0).toFixed(2) }}</el-tag>
+                          </div>
+                          <el-slider 
+                            v-model="simForm[field.key]" 
+                            :min="field.min" 
+                            :max="field.max" 
+                            :step="0.01"
+                            @input="handleSimulate"
+                          />
+                        </div>
+                      </div>
+                    </el-col>
+                    <el-col :span="12">
+                      <div class="simulation-result">
+                        <div class="gauge-container" ref="simGaugeRef" style="height: 250px;"></div>
+                        <div class="sim-comparison">
+                          <div class="sim-card original">
+                            <span class="label">原始风险</span>
+                            <span class="value">{{ (predictionResult.risk_probability * 100).toFixed(2) }}%</span>
+                          </div>
+                          <div class="sim-arrow"><el-icon><right /></el-icon></div>
+                          <div class="sim-card simulated">
+                            <span class="label">模拟风险</span>
+                            <span class="value" :class="simRiskLevelClass">{{ ((simRiskProb || 0) * 100).toFixed(2) }}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </el-col>
+                  </el-row>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+        </el-card>
       </div>
-    </el-dialog>
+    </transition>
 
     <!-- 批量风险扫描 -->
     <el-card style="margin-top: 20px;">
@@ -117,7 +195,7 @@
       <div class="batch-upload">
         <el-upload
           drag
-          action="http://localhost:8080/api/predict/batch"
+          action="/api/predict/batch"
           :on-success="handleBatchSuccess"
           :on-error="handleBatchError"
           :before-upload="beforeBatchUpload"
@@ -165,21 +243,54 @@
 
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { useRoute } from 'vue-router'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, Operation, Right, FirstAidKit, ChatDotRound, DataAnalysis, Download, Top } from '@element-plus/icons-vue'
+
+// 手写简易 debounce 函数
+function debounce(fn, delay) {
+  let timer = null
+  return function (...args) {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+    }, delay)
+  }
+}
 
 const route = useRoute()
 const loading = ref(false)
-const resultVisible = ref(false)
 const predictionResult = ref(null)
 const shapChartRef = ref(null)
 const radarChartRef = ref(null)
+const simGaugeRef = ref(null)
+const resultDashboardRef = ref(null)
 const targetStkcd = ref('')
 const shapSummaryText = ref('')
 const batchResults = ref([])
+const diagnosisAdvices = ref([])
+const coreSuggestion = ref('')
+const aiCommentary = ref('')
+const aiLoading = ref(false)
+
+// 敏感度模拟器数据
+const simRiskProb = ref(0)
+const simForm = reactive({})
+const topSimFields = ref([
+  { key: 'F011201A', label: '资产负债率', min: 0, max: 1.5 },
+  { key: 'F080601A', label: '总资产增长率', min: -0.5, max: 0.5 },
+  { key: 'F010701B', label: '利息保障倍数', min: -5, max: 20 },
+  { key: 'F010601A', label: '营运资金 (亿)', min: -10, max: 100, scale: 1e8 },
+  { key: 'F011601A', label: '权益乘数', min: 0.5, max: 10 }
+])
+
+const simRiskLevelClass = computed(() => {
+  if (simRiskProb.value > 0.7) return 'text-danger'
+  if (simRiskProb.value > 0.3) return 'text-warning'
+  return 'text-success'
+})
 
 onMounted(() => {
   if (route.query.stkcd) {
@@ -196,7 +307,7 @@ const handleExportReport = (id) => {
     ElMessage.warning('暂无记录ID，无法导出')
     return
   }
-  window.open(`http://localhost:8080/api/prediction/export/${id}`, '_blank')
+  window.open(`/api/prediction/export/pdf/${id}`, '_blank')
 }
 
 // 字段定义
@@ -247,6 +358,11 @@ const fillSampleData = () => {
 
 const resetForm = () => {
   Object.keys(form).forEach(key => form[key] = 0)
+  predictionResult.value = null
+}
+
+const scrollToForm = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const handlePredict = async () => {
@@ -260,31 +376,36 @@ const handlePredict = async () => {
       form.F080601A, form.F081001B, form.F081601B
     ]
 
-    const response = await axios.post('http://localhost:8080/api/predict', { 
+    const response = await request.post('/predict', { 
       features,
       stkcd: targetStkcd.value || '000001' 
     })
     
-    if (response.data.error) {
-      ElMessage.error('预测失败: ' + response.data.error)
+    if (response.error) {
+      ElMessage.error('预测失败: ' + response.error)
     } else {
-      predictionResult.value = response.data
-      resultVisible.value = true
+      predictionResult.value = response
+      aiCommentary.value = '' // 重置 AI 点评
+      
+      // 生成智能诊断建议
+      generateDiagnosis(response)
       
       // 生成 SHAP 智能摘要
-      generateShapSummary(response.data.shap_analysis)
+      generateShapSummary(response.shap_analysis)
       
       // 等待 DOM 更新并显示图表
       await nextTick()
+      
+      // 平滑滚动到结果区域
       setTimeout(() => {
-        console.log('Initializing charts...', response.data)
+        if (resultDashboardRef.value) {
+          resultDashboardRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
         initShapChart(response.data.shap_analysis)
         if (response.data.industry_benchmarking) {
-          console.log('Industry benchmarking data found:', response.data.industry_benchmarking)
           initRadarChart(response.data.industry_benchmarking)
-        } else {
-          console.warn('No industry benchmarking data returned from server')
         }
+        initSimulation()
       }, 500)
     }
   } catch (error) {
@@ -469,6 +590,74 @@ const initShapChart = (shapAnalysis) => {
   window.addEventListener('resize', () => chart.resize())
 }
 
+// 生成智能诊断建议
+const generateDiagnosis = (result) => {
+  const shap = result.shap_analysis
+  const benchmark = result.industry_benchmarking
+  const advices = []
+  
+  // 1. 偿债风险识别
+  if (shap['资产负债率'] > 0.05) {
+    advices.push({ type: 'danger', tag: '债务预警', text: '资产负债率过高，显著增加了财务杠杆风险。' })
+  }
+  if (shap['利息保障倍数'] > 0.05) {
+    advices.push({ type: 'warning', tag: '利息压力', text: '利息保障倍数不足，可能面临短期债务违约。' })
+  }
+  
+  // 2. 营运与增长识别
+  if (shap['总资产增长率'] > 0.05) {
+    advices.push({ type: 'danger', tag: '增长停滞', text: '资产增长动能严重不足，反映出业务扩张受阻。' })
+  }
+  if (shap['总资产周转率'] > 0.03) {
+    advices.push({ type: 'warning', tag: '效率低下', text: '资产周转速度低于预期，资源利用效率有待提升。' })
+  }
+  
+  // 3. 对标分析识别
+  if (benchmark) {
+    if (benchmark.avgSolvency > 0.7) {
+      advices.push({ type: 'info', tag: '行业对标', text: '偿债能力明显弱于行业均值，存在结构性短板。' })
+    }
+  }
+
+  // 兜底建议
+  if (advices.length === 0) {
+    advices.push({ type: 'success', tag: '表现良好', text: '各项核心财务指标均处于良性区间。' })
+  }
+  
+  diagnosisAdvices.value = advices.slice(0, 4) // 最多显示4条
+  
+  // 核心整改建议
+  if (result.level === '高风险') {
+    coreSuggestion.value = '建议立即启动财务合规性审查，削减非核心业务开支，并寻求紧急融资或债务重组。'
+  } else if (result.level === '中风险') {
+    coreSuggestion.value = '建议优化现金流管理，收紧信用销售政策，并加强对子公司的财务审计频率。'
+  } else {
+    coreSuggestion.value = '继续保持稳健的财务政策，定期进行压力测试即可。'
+  }
+}
+
+const fetchAiCommentary = async () => {
+  if (!predictionResult.value) return
+  
+  aiLoading.value = true
+  try {
+    const response = await request.post('/ai/commentary', {
+      id: predictionResult.value.id, // 传入 ID 以便保存
+      level: predictionResult.value.level,
+      risk_probability: predictionResult.value.risk_probability,
+      shap_analysis: predictionResult.value.shap_analysis
+    })
+    aiCommentary.value = response.commentary
+    // 更新本地结果中的点评，确保导出 PDF 时能包含它
+    predictionResult.value.commentary = response.commentary
+  } catch (error) {
+    console.error('获取 AI 点评失败:', error)
+    ElMessage.error('获取 AI 点评失败')
+  } finally {
+    aiLoading.value = false
+  }
+}
+
 // 批量扫描逻辑
 const handleBatchSuccess = (response) => {
   if (response.error) {
@@ -491,6 +680,88 @@ const beforeBatchUpload = (file) => {
   return isExcel
 }
 
+// 敏感度模拟器逻辑
+const initSimulation = () => {
+  // 复制当前表单数据到模拟表单
+  topSimFields.value.forEach(field => {
+    let val = form[field.key]
+    if (field.scale) val = val / field.scale
+    simForm[field.key] = val
+  })
+  simRiskProb.value = predictionResult.value.risk_probability
+  
+  nextTick(() => {
+    updateSimGauge()
+  })
+}
+
+const handleSimulate = debounce(async () => {
+  // 构造模拟特征数组
+  const simFeatures = [
+    form.F010101A, form.F010201A, form.F010401A, form.F010601A, form.F010701B,
+    form.F010801B, form.F010901B, form.F011201A, form.F011401A, form.F011601A,
+    form.F040202B, form.F040502B, form.F041202B, form.F041702B,
+    form.F080601A, form.F081001B, form.F081601B
+  ]
+  
+  // 使用模拟值替换原值
+  topSimFields.value.forEach(field => {
+    const idx = [...solvencyFields, ...operationFields, ...growthFields].findIndex(f => f.key === field.key)
+    if (idx !== -1) {
+      let val = simForm[field.key]
+      if (field.scale) val = val * field.scale
+      simFeatures[idx] = val
+    }
+  })
+  
+  try {
+    const response = await request.post('/predict', { 
+      features: simFeatures,
+      stkcd: targetStkcd.value || '000001'
+    })
+    simRiskProb.value = response.risk_probability
+    updateSimGauge()
+  } catch (error) {
+    console.error('模拟预测失败:', error)
+  }
+}, 300)
+
+const updateSimGauge = () => {
+  if (!simGaugeRef.value) return
+  
+  let chart = echarts.getInstanceByDom(simGaugeRef.value)
+  if (!chart) chart = echarts.init(simGaugeRef.value)
+  
+  const option = {
+    series: [{
+      type: 'gauge',
+      startAngle: 180,
+      endAngle: 0,
+      min: 0,
+      max: 1,
+      splitNumber: 8,
+      axisLine: {
+        lineStyle: {
+          width: 6,
+          color: [
+            [0.3, '#67C23A'],
+            [0.7, '#E6A23C'],
+            [1, '#F56C6C']
+          ]
+        }
+      },
+      pointer: { icon: 'path://M12.8,0.7l12,20.1c0.6,1,0.3,2.3-0.7,2.9c-0.3,0.2-0.6,0.3-0.9,0.3H1.4c-1.2,0-2.1-0.9-2.1-2.1c0-0.3,0.1-0.6,0.3-0.9l12-20.1C12,0.4,12.4,0.3,12.8,0.7z', length: '12%', width: 20, offsetCenter: [0, '-60%'], itemStyle: { color: 'auto' } },
+      axisTick: { length: 12, lineStyle: { color: 'auto', width: 2 } },
+      splitLine: { length: 20, lineStyle: { color: 'auto', width: 5 } },
+      axisLabel: { color: '#464646', fontSize: 12, distance: -60, formatter: (value) => value === 0.8 ? '高风险' : value === 0.5 ? '中风险' : value === 0.2 ? '低风险' : '' },
+      title: { offsetCenter: [0, '-20%'], fontSize: 16 },
+      detail: { fontSize: 30, offsetCenter: [0, '0%'], valueAnimation: true, formatter: (value) => (value * 100).toFixed(2) + '%', color: 'inherit' },
+      data: [{ value: simRiskProb.value, name: '模拟风险概率' }]
+    }]
+  }
+  chart.setOption(option)
+}
+
 const getProgressColor = (score) => {
   if (score > 0.7) return '#f56c6c'
   if (score > 0.3) return '#e6a23c'
@@ -505,7 +776,9 @@ const getTagTypeByLevel = (level) => {
 
 const viewBatchDetail = (result) => {
   predictionResult.value = result
-  resultVisible.value = true
+  
+  // 生成智能诊断建议
+  generateDiagnosis(result)
   
   // 生成智能摘要
   generateShapSummary(result.shap_analysis)
@@ -513,11 +786,15 @@ const viewBatchDetail = (result) => {
   // 渲染图表
   nextTick(() => {
     setTimeout(() => {
+      if (resultDashboardRef.value) {
+        resultDashboardRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
       initShapChart(result.shap_analysis)
       // 批量结果如果包含行业对标数据则渲染
       if (result.industry_benchmarking) {
         initRadarChart(result.industry_benchmarking)
       }
+      initSimulation()
     }, 500)
   })
 }
@@ -551,23 +828,157 @@ h4 {
   border-bottom: 1px solid #eee;
   color: #409EFF;
 }
-.result-container {
-  text-align: center;
+/* Dashboard 布局样式 */
+.result-dashboard {
+  margin-top: 25px;
+  animation: fadeIn 0.5s ease-out;
 }
-.result-advice {
-  margin-top: 20px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dashboard-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.dashboard-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+.section-card {
+  background: #fff;
+  border-radius: 8px;
   padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  text-align: left;
-  font-size: 14px;
+  border: 1px solid #ebeef5;
+  margin-bottom: 20px;
 }
-.shap-summary {
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 左侧 KPI 卡片 */
+.risk-kpi-card {
+  padding: 25px;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #909399, #606266);
+}
+.risk-kpi-card.高风险 { background: linear-gradient(135deg, #f56c6c, #f78989); }
+.risk-kpi-card.中风险 { background: linear-gradient(135deg, #e6a23c, #ebb563); }
+.risk-kpi-card.低风险 { background: linear-gradient(135deg, #67c23a, #85ce61); }
+
+.kpi-label { font-size: 14px; opacity: 0.9; margin-bottom: 8px; }
+.kpi-value { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+.kpi-prob { font-size: 14px; opacity: 0.9; margin-bottom: 12px; }
+.kpi-status { 
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+/* 智能医生诊断样式 */
+.doctor-diagnosis {
+  background: #fffaf0;
+  border-left: 4px solid #e6a23c;
+}
+.diagnosis-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.advice-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.advice-text { color: #606266; }
+.overall-suggestion {
   margin-top: 15px;
-  color: #606266;
+  padding-top: 12px;
+  border-top: 1px dashed #e6a23c;
+  font-size: 13px;
 }
-.summary-text {
-  line-height: 1.6;
+.overall-suggestion p {
+  margin-top: 5px;
+  color: #cf9236;
   font-style: italic;
 }
+
+/* AI 点评样式 */
+.ai-diagnosis { background: #f0f7ff; }
+.ai-text-box {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #409eff;
+  white-space: pre-line;
+}
+.ai-action { text-align: center; }
+
+/* 图表与模拟器 */
+.chart-tip { font-size: 12px; color: #909399; margin-bottom: 10px; }
+.simulation-card { background: #fff; }
+.slider-item { margin-bottom: 20px; }
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.simulation-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sim-comparison {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: -20px;
+}
+.sim-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 15px;
+  border-radius: 8px;
+  background: #f8f9fa;
+  min-width: 90px;
+}
+.sim-card .label { font-size: 11px; color: #909399; }
+.sim-card .value { font-size: 16px; font-weight: bold; }
+.sim-arrow { font-size: 20px; color: #dcdfe6; }
+
+.text-danger { color: #f56c6c; }
+.text-warning { color: #e6a23c; }
+.text-success { color: #67c23a; }
+
+.batch-upload {
+  padding: 20px;
+  border: 2px dashed #dcdfe6;
+  border-radius: 8px;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+.batch-upload:hover { border-color: #409eff; }
 </style>

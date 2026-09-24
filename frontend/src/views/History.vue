@@ -98,7 +98,7 @@
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 
@@ -113,8 +113,8 @@ const hasBenchmarking = ref(false)
 const fetchHistory = async () => {
   loading.value = true
   try {
-    const response = await axios.get('http://localhost:8080/api/history')
-    historyData.value = response.data
+    const response = await request.get('/history')
+    historyData.value = response
   } catch (error) {
     ElMessage.error('获取历史记录失败')
     console.error(error)
@@ -129,7 +129,7 @@ const handleExport = (id) => {
     return
   }
   // 构建导出URL并触发下载
-  const exportUrl = `http://localhost:8080/api/prediction/export/${id}`
+  const exportUrl = `/api/prediction/export/${id}`
   window.open(exportUrl, '_blank')
   ElMessage.success('正在导出报告，请稍候...')
 }
@@ -166,11 +166,11 @@ const viewDetails = async (row) => {
     
     // 获取行业对标数据并初始化雷达图
     try {
-      const response = await axios.get(`http://localhost:8080/api/prediction/benchmarking/${row.stkcd}`)
-      if (response.data) {
+      const response = await request.get(`/prediction/benchmarking/${row.stkcd}`)
+      if (response) {
         hasBenchmarking.value = true
         await nextTick()
-        initRadarChart(row, response.data)
+        initRadarChart(row, response)
       }
     } catch (error) {
       console.warn('获取对标数据失败:', error)

@@ -87,7 +87,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import request from './utils/request'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { Menu, Upload, Cpu, Histogram, Setting, TrendCharts, ArrowDown, OfficeBuilding, PieChart } from '@element-plus/icons-vue'
@@ -116,8 +116,8 @@ const currentRouteName = computed(() => {
 
 const testBackend = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/hello')
-    backendMessage.value = `${response.data.message} | ${response.data.data}`
+    const response = await request.get('/hello')
+    backendMessage.value = `${response.message} | ${response.data}`
     ElMessage.success('后端连接成功！')
   } catch (error) {
     console.error('连接失败:', error)

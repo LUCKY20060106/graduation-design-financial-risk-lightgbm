@@ -99,7 +99,7 @@
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import * as echarts from 'echarts'
 import { Grid, DataLine, Medal, Memo } from '@element-plus/icons-vue'
 
@@ -113,15 +113,15 @@ const comparisonData = ref(null)
 const fetchMetrics = async () => {
   try {
     const [metricsRes, comparisonRes] = await Promise.all([
-      axios.get('http://localhost:8080/api/evaluation/metrics'),
-      axios.get('http://localhost:8080/api/evaluation/comparison')
+      request.get('/evaluation/metrics'),
+      request.get('/evaluation/comparison')
     ])
     
-    metrics.value = metricsRes.data
-    comparisonData.value = comparisonRes.data
+    metrics.value = metricsRes
+    comparisonData.value = comparisonRes
     
     // 转换分类报告数据
-    const report = metricsRes.data.classification_report
+    const report = metricsRes.classification_report
     reportData.value = [
       { class: '正常 (0)', ...extractMetrics(report['0'] || report['0.0']) },
       { class: '风险 (1)', ...extractMetrics(report['1'] || report['1.0']) },

@@ -45,6 +45,8 @@ This project is a graduation design for Computer Science and Technology. It aims
 ├── frontend/           # Vue 3 Frontend Project
 ├── sql/                # Database initialization and migration scripts
 ├── src/                # Python AI Engine and Data Processing scripts
+├── start_all.ps1      # One-click startup script
+├── merge_build.ps1    # Front-end and Back-end integration script
 ├── 项目介绍文档.md      # Project introduction (Chinese)
 ├── 进度.md             # Project progress log (Chinese)
 └── README.md           # This file
@@ -72,13 +74,19 @@ docker run -d --name bishe-mysql -p 3307:3306 -e MYSQL_ROOT_PASSWORD=root -e MYS
 # Run scripts in ./sql/schema.sql
 ```
 
-#### 2. Backend
+#### 2. All-in-One Merge (Optional but recommended for deployment)
 ```bash
-cd backend
-mvn spring-boot:run
+# This will build frontend and move files to backend static folder
+.\merge_build.ps1
 ```
 
-#### 3. Frontend
+#### 3. Backend & Database Startup
+```bash
+# This will start MySQL container and Spring Boot
+.\start_all.ps1
+```
+
+#### 4. Frontend (Only for independent development)
 ```bash
 cd frontend
 npm install

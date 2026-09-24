@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -46,6 +47,12 @@ public class PredictionController {
 
     @Autowired
     private com.risk.prediction.repository.IndustryAverageRepository industryAverageRepository;
+
+    @Autowired
+    private com.risk.prediction.service.AiCommentaryService aiCommentaryService;
+
+    @Autowired
+    private com.risk.prediction.service.PdfExportService pdfExportService;
 
     @PostMapping("/predict")
     public Map<String, Object> predict(@RequestBody Map<String, Object> request) {
@@ -206,5 +213,37 @@ public class PredictionController {
             e.printStackTrace();
             return Map.of("error", "批量处理失败: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/ai/commentary")
+    public Map<String, String> getAiCommentary(@RequestBody Map<String, Object> request) {
+        String level = (String) request.get("level");
+        double probability = Double.parseDouble(request.get("risk_probability").toString());
+        Map<String, Double> shapAnalysis = (Map<String, Double>) request.get("shap_analysis");
+        
+        String commentary = aiCommentaryService.generateCommentary(level, probability, shapAnalysis);
+        
+        // 如果有 ID，顺便更新到数据库
+        if (request.containsKey("id")) {
+            Long id = Long.parseLong(request.get("id").toString());
+            predictionResultRepository.findById(id).ifPresent(res -> {
+                res.setCommentary(commentary);
+                predictionResultRepository.save(res);
+            });
+        }
+        
+        return Map.of("commentary", commentary);
+    }
+
+    @GetMapping("/export/pdf/{id}")
+    public void exportPdf(@PathVariable Long id, HttpServletResponse response) throws Exception {
+        PredictionResult result = predictionResultRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("记录不存在"));
+
+        byte[] pdfBytes = pdfExportService.generatePredictionPdf(result);
+
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=risk_report_" + id + ".pdf");
+        response.getOutputStream().write(pdfBytes);
     }
 }

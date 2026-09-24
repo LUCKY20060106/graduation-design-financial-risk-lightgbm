@@ -153,3 +153,30 @@ F011601A      0     0.00
 
 Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 0 } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 mvn spring-boot:run
+
+
+Write-Host "正在准备毕设环境..." -ForegroundColor Cyan
+docker start bishe-mysql
+Start-Sleep -s 2  # 等待数据库初始化
+Write-Host "清理端口占用..." -ForegroundColor Yellow
+Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 0 } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+Write-Host "启动后端服务..." -ForegroundColor Green
+cd backend
+mvn spring-boot:run
+
+
+cd d:\桌面\计算机科学与技术毕业论文
+.\start_all.ps1
+
+
+
+如果你修改了前端代码 (Vue 文件)：
+在项目根目录打开 PowerShell，运行：
+.\merge_build.ps1
+
+如果你修改了后端代码 (Java 文件)：
+你可以直接运行 .\start_all.ps1。
+它会自动检查 Docker 数据库是否启动，并重启 SpringBoot 服务。
+
+
+同步完成后，你只需要访问 http://localhost:8080 （不再需要 5173 端口），就能看到带最新修改的全栈项目了。

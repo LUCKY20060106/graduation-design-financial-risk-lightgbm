@@ -79,7 +79,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
@@ -101,8 +101,8 @@ const companyForm = reactive({
 const fetchCompanies = async () => {
   loading.value = true
   try {
-    const response = await axios.get('http://localhost:8080/api/companies')
-    companies.value = response.data
+    const response = await request.get('/companies')
+    companies.value = response
   } catch (error) {
     ElMessage.error('获取企业列表失败')
   } finally {
@@ -146,7 +146,7 @@ const submitForm = async () => {
     return
   }
   try {
-    await axios.post('http://localhost:8080/api/companies', companyForm)
+    await request.post('/companies', companyForm)
     ElMessage.success(isEdit.value ? '更新成功' : '新增成功')
     dialogVisible.value = false
     fetchCompanies()
@@ -157,7 +157,7 @@ const submitForm = async () => {
 
 const handleDelete = async (stkcd) => {
   try {
-    await axios.delete(`http://localhost:8080/api/companies/${stkcd}`)
+    await request.delete(`/companies/${stkcd}`)
     ElMessage.success('删除成功')
     fetchCompanies()
   } catch (error) {

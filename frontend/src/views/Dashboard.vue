@@ -130,7 +130,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import request from '../utils/request'
 import * as echarts from 'echarts'
 import { 
   QuestionFilled,
@@ -342,12 +342,12 @@ const initImportanceChart = (importanceData) => {
 const fetchData = async () => {
   try {
     const [trendRes, perfRes] = await Promise.all([
-      axios.get('http://localhost:8080/api/stats'),
-      axios.get('http://localhost:8080/api/model-performance')
+      request.get('/stats'),
+      request.get('/model-performance')
     ])
-    rawTrendData = trendRes.data
+    rawTrendData = trendRes
     initTrendChart(rawTrendData)
-    initImportanceChart(perfRes.data.importance)
+    initImportanceChart(perfRes.importance)
   } catch (error) {
     console.error('获取统计数据失败:', error)
   }
