@@ -17,22 +17,27 @@ COPY --from=frontend-builder /frontend/dist ./backend/src/main/resources/static/
 # 编译后端
 RUN mvn clean package -DskipTests -f backend/pom.xml
 
-# 第三阶段：运行环境 (包含 Java 和 Python)
-FROM eclipse-temurin:17-jre-focal
+# 第三阶段：运行环境 (使用 Python 为基准，安装 JRE)
+FROM python:3.12-slim-bookworm
 WORKDIR /app
 
-# 安装 Python 和必要的运行时依赖 (如 libgomp1 用于 LightGBM)
+# 安装 OpenJDK 17 JRE 和 libgomp1 (LightGBM 必需)
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
+    openjdk-17-jre-headless \
     libgomp1 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
 # 复制后端 Jar 包
 COPY --from=backend-builder /app/backend/target/*.jar app.jar
+
 # 复制 AI 引擎相关文件
 COPY src/ ./src/
 COPY requirements.txt ./
-RUN pip3 install -r requirements.txt
+COPY lgb_model.txt ./ 
+
+# 使用国内源加速或增加超时设置（针对 Railway 可能的网络波动）
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
